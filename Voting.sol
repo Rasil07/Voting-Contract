@@ -4,21 +4,24 @@ pragma solidity ^0.8.9;
 
 contract Voting{
     
-  event ProposalCreated(address indexed proposedBy);
-  event Voted(address indexed voter);
-  
-  //TODOS
-  // 1. Write a fuction that shows total number of voters for a given Proposal.
-  // 2. Write a fuction that shows total number of Proposals.
-  //3. Implement Modifiers in voteProposal function.
+    
+    //emits here;
+    event ProposalCreated(address indexed propoesedBy);
+    event Voted(address indexed voter); 
     
     
-    struct Voter {
+    //Todos
+    //1. Write a function to show total numbers of Proposals in the contract
+    //2. Write a function to show total number of voters fot the given proposal
+    //3. Implement function Modifier in voteProposal Function instead of hasVoted function;
+    
+    
+    struct Voter{
         bool agreed;
         bool voted;
     }
     
-    struct Proposal {
+    struct Proposal{
         string title;
         address proposedBy;
         uint256 voteCountPos;
@@ -27,73 +30,69 @@ contract Voting{
         address[] voterAddress;
     }
     
-    Proposal[] proposals;
+    uint256 counter;
+    mapping(uint256=>Proposal) proposals;
+    
+  
     
     
-    //Change this to modifier
-    function hasVoted(uint256 proposalId, address votersAddress)
-        public
-        view
-        returns (bool)
-    {
-        Proposal storage p = proposals[proposalId];
-        return p.voters[votersAddress].voted;
+    function hasVoted(uint256 proposalIndex, address votersAddress)  public view  returns (bool){
+            Proposal storage p = proposals[proposalIndex];
+            return p.voters[votersAddress].voted;
     }
     
-    
     function createProposal(string memory title) public{
-        uint256 proposalIndex = proposals.length;
-        proposals.push();
-        Proposal storage newProposal= proposals[proposalIndex];
+        Proposal storage newProposal = proposals[counter];
         newProposal.title = title;
         newProposal.proposedBy = msg.sender;
+        counter++;
         emit ProposalCreated(msg.sender);
     }
     
-    
-    function getProposalByIndex(uint256 proposalIndex) public view
-        returns (
-            uint256 Index,
-            string memory ProposalTitle,
-            address Proposer,
-            uint256 Upvotes,
-            uint256 Downvotes
+    function getProposalByIndex(uint256 proposalIndex) public view returns(
+        uint256 Index,
+        string memory ProposalTitle,
+        address Proposer,
+        uint256 Upvotes,
+        uint256 Downvotes
         ){
-            if(proposals.length>0){
+            
+            if(counter>0){
                 Proposal storage proposal = proposals[proposalIndex];
-                
                 return(
                     proposalIndex,
                     proposal.title,
                     proposal.proposedBy,
-                      proposal.voteCountPos,
-                proposal.voteCountNeg
+                    proposal.voteCountPos,
+                    proposal.voteCountNeg
                     );
             }
-        }
         
-        
-        
-    function voteProposal(uint256 proposalIndex, bool agreed) public{
+    }
+    
+    function voteProposal(uint256 proposalIndex, bool agreed) public {
         Proposal storage proposal = proposals[proposalIndex];
-        //Implement modifier instead
-        require(
-            !hasVoted(proposalIndex, msg.sender),
-            "You have already voted for this proposal"
-        );
-        if (agreed) {
+        
+        require(!hasVoted(proposalIndex,msg.sender),"Already voted!!!");
+        
+        if(agreed){
             proposal.voteCountPos += 1;
-        } else {
+            
+        }else{
             proposal.voteCountNeg += 1;
         }
+        
         proposal.voters[msg.sender].agreed = agreed;
         proposal.voters[msg.sender].voted = true;
         proposal.voterAddress.push(msg.sender);
-
+        
         emit Voted(msg.sender);
-        }
+        
+        
+    }
+    
+    
     
     
     
 }
-
