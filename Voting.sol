@@ -1,98 +1,115 @@
-// SPDX-License-Identifier: GPL-3.0
+//SPDX-License-Identifier: GPL-3.0
 
-pragma solidity ^0.8.9;
+pragma solidity ^0.8.11;
 
 contract Voting{
-    
-    
-    //emits here;
-    event ProposalCreated(address indexed propoesedBy);
-    event Voted(address indexed voter); 
-    
-    
-    //Todos
-    //1. Write a function to show total numbers of Proposals in the contract
-    //2. Write a function to show total number of voters fot the given proposal
-    //3. Implement function Modifier in voteProposal Function instead of hasVoted function;
-    
-    
-    struct Voter{
-        bool agreed;
-        bool voted;
+ 
+ struct Proposal{
+     string title;
+     uint upVotes;
+     uint downVotes;
+     address[] voters;
+     bool isActive;
+     address proposedBy;
+     uint createdAt;
+ }
+ struct Vote{
+     bool voted;
+     bool agreed;
+ }
+
+uint256 public ProposalCounter;
+
+mapping(uint256=>Proposal) Proposals;
+mapping(address=>mapping(uint256=>Vote)) Voted;
+
+
+event ProposalCreated(address from, string title, uint256 createdAt);
+event VotedProposal(address by, uint votedTo, uint votedAt);
+event ProposalDiscarded(uint proposalId, uint discardeAt, address discardedBy);
+
+modifier proposalExist(uint256 proposalId){
+    require(ProposalCounter>0,"No Proposal Found!!!");
+    require(proposalId<=ProposalCounter,"No Proposal Found!!!");
+    _;
+}
+
+modifier excludeOwner(uint proposalId){
+    Proposal memory proposal = Proposals[proposalId];
+    require(proposal.proposedBy!=msg.sender,"Owner cannot vote their own proposal");
+    _;
+}
+
+modifier onlyOwner(uint proposalId){
+    Proposal memory proposal = Proposals[proposalId];
+    require(proposal.proposedBy==msg.sender,"Only Owner can access.");
+    _;
+}
+
+modifier notVoted(uint proposalId){
+    Vote memory _vote = Voted[msg.sender][proposalId];
+    require(!_vote.voted,"Has already voted");
+    _;
+}
+
+function createProposal(string memory _title) public{
+    Proposal memory new_proposal;
+    new_proposal.title=_title;
+    new_proposal.proposedBy=msg.sender;
+    new_proposal.isActive=true;
+    new_proposal.createdAt=block.timestamp;
+    Proposals[ProposalCounter] = new_proposal;
+    ProposalCounter++;
+    emit ProposalCreated(new_proposal.proposedBy,new_proposal.title,new_proposal.createdAt);
+}
+
+function getProposal(uint256 proposalId) public view proposalExist(proposalId) returns(
+    uint256 index,
+    string memory title,
+    address proposedBy,
+    uint256 upVotes,
+    uint256 downVotes,
+    address[] memory voters,
+    uint createdAt,
+    bool isActive
+)
+
+{
+    Proposal memory required_proposal = Proposals[proposalId];
+    return(
+        proposalId,
+        required_proposal.title,
+        required_proposal.proposedBy,
+        required_proposal.upVotes,
+        required_proposal.downVotes,
+        required_proposal.voters,
+        required_proposal.createdAt,
+        required_proposal.isActive
+    );
+}
+
+function vote(uint256 proposalId, bool voteType) proposalExist(proposalId) excludeOwner(proposalId) notVoted(proposalId) public{
+    Proposal storage proposal = Proposals[proposalId];
+    require(proposal.isActive,"Cannot vote in inactive proposal");
+    if(voteType){
+        ++proposal.upVotes;
+    }else{
+        ++proposal.downVotes;
     }
-    
-    struct Proposal{
-        string title;
-        address proposedBy;
-        uint256 voteCountPos;
-        uint256 voteCountNeg;
-        mapping(address=>Voter) voters;
-        address[] voterAddress;
-    }
-    
-    uint256 counter;
-    mapping(uint256=>Proposal) proposals;
-    
-  
-    
-    
-    function hasVoted(uint256 proposalIndex, address votersAddress)  public view  returns (bool){
-            Proposal storage p = proposals[proposalIndex];
-            return p.voters[votersAddress].voted;
-    }
-    
-    function createProposal(string memory title) public{
-        Proposal storage newProposal = proposals[counter];
-        newProposal.title = title;
-        newProposal.proposedBy = msg.sender;
-        counter++;
-        emit ProposalCreated(msg.sender);
-    }
-    
-    function getProposalByIndex(uint256 proposalIndex) public view returns(
-        uint256 Index,
-        string memory ProposalTitle,
-        address Proposer,
-        uint256 Upvotes,
-        uint256 Downvotes
-        ){
-            
-            if(counter>0){
-                Proposal storage proposal = proposals[proposalIndex];
-                return(
-                    proposalIndex,
-                    proposal.title,
-                    proposal.proposedBy,
-                    proposal.voteCountPos,
-                    proposal.voteCountNeg
-                    );
-            }
-        
-    }
-    
-    function voteProposal(uint256 proposalIndex, bool agreed) public {
-        Proposal storage proposal = proposals[proposalIndex];
-        
-        require(!hasVoted(proposalIndex,msg.sender),"Already voted!!!");
-        
-        if(agreed){
-            proposal.voteCountPos += 1;
-            
-        }else{
-            proposal.voteCountNeg += 1;
-        }
-        
-        proposal.voters[msg.sender].agreed = agreed;
-        proposal.voters[msg.sender].voted = true;
-        proposal.voterAddress.push(msg.sender);
-        
-        emit Voted(msg.sender);
-        
-        
-    }
-    
-    
-    
-    
-    
+    proposal.voters.push(msg.sender);
+    Vote memory voted;
+    voted.agreed=voteType;
+    voted.voted=true;
+    Voted[msg.sender][proposalId] = voted;    
+    emit VotedProposal(msg.sender, proposalId, block.timestamp);
+}
+
+function discardProposal(uint proposalId) proposalExist(proposalId) onlyOwner(proposalId) public{
+    Proposal memory proposal = Proposals[proposalId];
+    require(proposal.isActive,"Proposal already discarded");
+    proposal.isActive=false;
+    Proposals[proposalId] = proposal;
+    emit ProposalDiscarded(proposalId,block.timestamp,msg.sender);
+}
+
 }
